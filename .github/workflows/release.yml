@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [xmake.lua]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: windows-latest
+    outputs:
+      publish: ${{ steps.info.outputs.publish }}
+      tag: ${{ steps.info.outputs.tag }}
+      filename: ${{ steps.info.outputs.filename }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: '3.1.1'
+      - id: info
+        name: Read release metadata
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: xmake release-info --before="$env:BEFORE" --output="$env:GITHUB_OUTPUT"
+      - name: Verify release
+        if: steps.info.outputs.publish == 'true'
+        run: |
+          xmake f -y -m releasedbg --toolchain=msvc --deploy_dir=
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          xmake verify
+      - uses: actions/upload-artifact@v4
+        if: steps.info.outputs.publish == 'true'
+        with:
+          name: release
+          path: ${{ steps.info.outputs.archive }}
+          if-no-files-found: error
+
+  publish:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist
+      - name: Publish verified archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          ASSET: ${{ needs.prepare.outputs.filename }}
+        run: |
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA" || {
+              echo "::error::Tag $TAG belongs to a different commit"; exit 1;
+            }
+            if gh release view "$TAG" --json isDraft,isPrerelease > existing.json; then
+              jq -e '(.isDraft | not) and (.isPrerelease | not)' existing.json > /dev/null
+              gh release download "$TAG" --pattern "$ASSET" --output existing.zip
+              cmp existing.zip "dist/$ASSET"
+              echo "Matching published release already exists."
+              exit 0
+            fi
+          fi
+          gh release create "$TAG" "dist/$ASSET" --target "$GITHUB_SHA" \
+            --generate-notes --notes "Source: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_SHA"
