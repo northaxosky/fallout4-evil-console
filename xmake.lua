@@ -18,6 +18,8 @@ set_encodings("utf-8")
 set_arch("x64")
 set_defaultmode("releasedbg")
 
+add_requires("safetyhook v0.7.0")
+
 add_rules("mode.debug", "mode.releasedbg")
 add_rules("plugin.vsxmake.autoupdate")
 
@@ -34,6 +36,8 @@ target(plugin_name)
         description = plugin_description
     })
     add_rules("template.package")
+
+    add_packages("safetyhook")
 
     add_files("src/**.cpp")
     add_headerfiles("src/**.h")

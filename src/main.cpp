@@ -1,11 +1,28 @@
+#include "Console/OutputLog.h"
+#include "Game/ConsoleLogHook.h"
+#include "Game/VanillaCommandExecutor.h"
+
 namespace Main
 {
+	namespace
+	{
+		constexpr std::size_t kOutputCapacity = 4096;
+
+		Console::OutputLog           g_output{kOutputCapacity};
+		Game::VanillaCommandExecutor g_executor;
+	}
+
 	bool InitPlugin(const F4SE::LoadInterface* a_f4se)
 	{
 		static std::once_flag once;
 		static bool           initialized = false;
 		std::call_once(once, [&]() {
 			F4SE::Init(a_f4se);
+
+			// Installed at load so output printed before the first open is still captured.
+			if (!Game::ConsoleLogHook::Install(g_output)) {
+				return;
+			}
 
 			REX::INFO("Loaded");
 
