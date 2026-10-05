@@ -26,24 +26,51 @@ namespace UI::Frontend
 		std::unique_ptr<dmui::Client> g_client;
 		std::unique_ptr<ConsoleView>  g_view;
 		DMUI_PageHandle               g_page{DMUI_INVALID_PAGE_HANDLE};
-		bool                          g_visible{false};
+		bool                          g_open{false};
+		std::uint64_t                 g_focusGeneration{0};
 
-		void SetVisible(bool a_visible)
+		void Close()
 		{
-			if (g_visible == a_visible) {
+			if (!std::exchange(g_open, false)) {
+				return;
+			}
+			// Dropping the last frame demand also ends focus.
+			if (!g_client->ReleaseFrame(g_page)) {
+				REX::WARN("could not hide the console overlay, result: {}", g_client->LastResult());
+			}
+		}
+
+		// The console is visible only while it holds input focus.
+		void Open()
+		{
+			if (g_open) {
+				return;
+			}
+			if (!g_client->RequestFrame(g_page)) {
+				REX::WARN("could not show the console overlay, result: {}", g_client->LastResult());
+				return;
+			}
+			if (!g_client->RequestOverlayFocus(g_page)) {
+				REX::WARN("could not focus the console overlay, result: {}", g_client->LastResult());
+				(void)g_client->ReleaseFrame(g_page);
 				return;
 			}
 
-			const auto changed = a_visible ? g_client->RequestFrame(g_page) : g_client->ReleaseFrame(g_page);
-			if (!changed) {
-				REX::WARN("could not {} the console overlay, result: {}", a_visible ? "show" : "hide", g_client->LastResult());
-				return;
-			}
+			const auto focus = g_client->QueryOverlayFocus(g_page);
+			g_focusGeneration = focus ? focus->generation : 0;
+			g_open = true;
+			g_view->OnOpened();
+		}
 
-			g_visible = a_visible;
-			if (a_visible) {
-				g_view->OnOpened();
+		// The host ends focus on loads, when the shell opens, or on failure; follow it closed.
+		[[nodiscard]] bool LostFocus()
+		{
+			const auto focus = g_client->QueryOverlayFocus(g_page);
+			if (!focus || focus->focused || focus->generation != g_focusGeneration) {
+				return false;
 			}
+			REX::DEBUG("console focus ended, reason: {}", focus->endReason);
+			return true;
 		}
 
 		// Content height below the cursor, excluding the window's bottom padding.
@@ -59,9 +86,13 @@ namespace UI::Frontend
 
 		void DrawOverlay()
 		{
+			if (LostFocus()) {
+				Close();
+				return;
+			}
 			g_view->Draw(AvailableHeight());
 			if (g_view->TakeCloseRequest()) {
-				SetVisible(false);
+				Close();
 			}
 		}
 	}
@@ -109,7 +140,7 @@ namespace UI::Frontend
 			kToggleChord,
 			[](bool a_pressed) {
 				if (a_pressed) {
-					SetVisible(!g_visible);
+					g_open ? Close() : Open();
 				}
 			});
 		if (!toggle) {
