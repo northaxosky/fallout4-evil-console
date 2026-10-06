@@ -14,6 +14,13 @@ namespace Console
 
 namespace UI
 {
+	enum class CloseRequest
+	{
+		kNone,
+		kCancel,
+		kConsoleKey
+	};
+
 	// Console window contents: output pane, command input, completion popup, and signature hint.
 	class ConsoleView
 	{
@@ -25,8 +32,8 @@ namespace UI
 		// a_available is the content height left in the window for the output pane and input line.
 		void Draw(float a_available);
 
-		// Escape with nothing left to dismiss asks the frontend to close the console.
-		[[nodiscard]] bool TakeCloseRequest() noexcept { return std::exchange(closeRequested_, false); }
+		// Escape with nothing to dismiss, or the console key's character, asks to close.
+		[[nodiscard]] CloseRequest TakeCloseRequest() noexcept { return std::exchange(closeRequest_, CloseRequest::kNone); }
 
 	private:
 		void PullOutput();
@@ -61,6 +68,6 @@ namespace UI
 		std::vector<const Console::CommandInfo*>       suggestions_;
 		std::size_t                                    selected_{0};
 		bool                                           popupOpen_{false};
-		bool                                           closeRequested_{false};
+		CloseRequest                                   closeRequest_{CloseRequest::kNone};
 	};
 }

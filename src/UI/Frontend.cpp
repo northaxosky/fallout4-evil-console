@@ -31,6 +31,10 @@ namespace UI::Frontend
 		std::atomic<bool>             g_ready{false};
 		std::atomic<bool>             g_togglePending{false};
 
+		// The game still sees the key press that closed the console once focus is released.
+		constexpr auto                        kConsoleKeyEcho = std::chrono::milliseconds{500};
+		std::chrono::steady_clock::time_point g_consoleKeyClosed{};
+
 		void Close()
 		{
 			if (!std::exchange(g_open, false)) {
@@ -93,7 +97,10 @@ namespace UI::Frontend
 				return;
 			}
 			g_view->Draw(AvailableHeight());
-			if (g_view->TakeCloseRequest()) {
+			if (const auto request = g_view->TakeCloseRequest(); request != CloseRequest::kNone) {
+				if (request == CloseRequest::kConsoleKey) {
+					g_consoleKeyClosed = std::chrono::steady_clock::now();
+				}
 				Close();
 			}
 		}
@@ -144,9 +151,14 @@ namespace UI::Frontend
 
 		// Toggles arrive from the game thread; apply them on the render thread.
 		const auto observer = g_client->AddFrameObserver([] {
-			if (g_togglePending.exchange(false)) {
-				g_open ? Close() : Open();
+			if (!g_togglePending.exchange(false)) {
+				return;
 			}
+			if (!g_open && std::chrono::steady_clock::now() - g_consoleKeyClosed < kConsoleKeyEcho) {
+				REX::DEBUG("ignored the console key press that closed the console");
+				return;
+			}
+			g_open ? Close() : Open();
 		});
 		if (!observer) {
 			REX::ERROR("could not register the console frame observer, result: {}", g_client->LastResult());

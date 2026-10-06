@@ -129,7 +129,7 @@ namespace UI
 			std::erase(input_, kConsoleKeyCharacter);
 			ReplaceInput(std::move(input_), cursor_ - static_cast<std::size_t>(before));
 			ClosePopup();
-			closeRequested_ = true;
+			closeRequest_ = CloseRequest::kConsoleKey;
 			return;
 		}
 
@@ -165,7 +165,7 @@ namespace UI
 			if (popupOpen_) {
 				ClosePopup();
 			} else {
-				closeRequested_ = true;
+				closeRequest_ = CloseRequest::kCancel;
 			}
 		}
 
