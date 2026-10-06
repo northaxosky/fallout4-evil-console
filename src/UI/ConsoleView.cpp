@@ -15,7 +15,6 @@ namespace UI
 
 		constexpr std::size_t kMaxOutputLines = 4000;
 		constexpr std::size_t kMaxSuggestions = 12;
-		constexpr char        kConsoleKeyCharacter = '`';
 
 		// The input sits at the bottom of the console, so popups open upward from the caret line.
 		constexpr dmui::ui::Vec2 kAboveCaret{0.0f, 1.0f};
@@ -123,16 +122,6 @@ namespace UI
 			return;
 		}
 
-		// Focus blocks the game's console key, so its character arrives as text instead.
-		if (edited && input_.contains(kConsoleKeyCharacter)) {
-			const auto before = std::ranges::count(std::string_view{input_}.substr(0, std::min(cursor_, input_.size())), kConsoleKeyCharacter);
-			std::erase(input_, kConsoleKeyCharacter);
-			ReplaceInput(std::move(input_), cursor_ - static_cast<std::size_t>(before));
-			ClosePopup();
-			closeRequest_ = CloseRequest::kConsoleKey;
-			return;
-		}
-
 		if (edited) {
 			session_.GetHistory().ResetNavigation();
 			RefreshSuggestions(cursor_, false);
@@ -165,7 +154,7 @@ namespace UI
 			if (popupOpen_) {
 				ClosePopup();
 			} else {
-				closeRequest_ = CloseRequest::kCancel;
+				closeRequested_ = true;
 			}
 		}
 

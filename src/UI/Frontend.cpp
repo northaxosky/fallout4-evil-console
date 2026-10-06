@@ -10,6 +10,7 @@ namespace UI::Frontend
 		constexpr auto kClientDisplayName = "Evil Console";
 		constexpr auto kClientIcon = "terminal-window";
 		constexpr auto kRequiredAbiMinor = 1u;
+		constexpr auto kToggleChord = "Grave";
 
 		constexpr DMUI_ManagedOverlayOptions kOverlayDefaults{
 			.anchor = DMUI_OVERLAY_ANCHOR_FREE,
@@ -30,10 +31,6 @@ namespace UI::Frontend
 		std::uint64_t                 g_focusGeneration{0};
 		std::atomic<bool>             g_ready{false};
 		std::atomic<bool>             g_togglePending{false};
-
-		// The game still sees the key press that closed the console once focus is released.
-		constexpr auto                        kConsoleKeyEcho = std::chrono::milliseconds{500};
-		std::chrono::steady_clock::time_point g_consoleKeyClosed{};
 
 		void Close()
 		{
@@ -97,10 +94,7 @@ namespace UI::Frontend
 				return;
 			}
 			g_view->Draw(AvailableHeight());
-			if (const auto request = g_view->TakeCloseRequest(); request != CloseRequest::kNone) {
-				if (request == CloseRequest::kConsoleKey) {
-					g_consoleKeyClosed = std::chrono::steady_clock::now();
-				}
+			if (g_view->TakeCloseRequest()) {
 				Close();
 			}
 		}
@@ -151,18 +145,28 @@ namespace UI::Frontend
 
 		// Toggles arrive from the game thread; apply them on the render thread.
 		const auto observer = g_client->AddFrameObserver([] {
-			if (!g_togglePending.exchange(false)) {
-				return;
+			if (g_togglePending.exchange(false)) {
+				g_open ? Close() : Open();
 			}
-			if (!g_open && std::chrono::steady_clock::now() - g_consoleKeyClosed < kConsoleKeyEcho) {
-				REX::DEBUG("ignored the console key press that closed the console");
-				return;
-			}
-			g_open ? Close() : Open();
 		});
 		if (!observer) {
 			REX::ERROR("could not register the console frame observer, result: {}", g_client->LastResult());
 			return false;
+		}
+
+		// ALWAYS stays active while focused, so the same key opens and closes the console.
+		const auto hotkey = g_client->AddHotkeyAction(
+			"toggle",
+			"Toggle console",
+			kToggleChord,
+			[](bool a_pressed) {
+				if (a_pressed) {
+					g_togglePending = true;
+				}
+			},
+			DMUI_HOTKEY_CONTEXT_ALWAYS);
+		if (!hotkey) {
+			REX::WARN("could not register the console hotkey, result: {}", g_client->LastResult());
 		}
 
 		g_ready = true;
