@@ -10,6 +10,7 @@ namespace UI::Frontend
 		constexpr auto kClientDisplayName = "Evil Console";
 		constexpr auto kClientIcon = "terminal-window";
 		constexpr auto kToggleChord = "Grave";
+		constexpr auto kRequiredAbiMinor = 1u;
 
 		constexpr DMUI_ManagedOverlayOptions kOverlayDefaults{
 			.anchor = DMUI_OVERLAY_ANCHOR_FREE,
@@ -112,6 +113,12 @@ namespace UI::Frontend
 			} else {
 				REX::WARN("no DearModdingUI host is loaded; the console is unavailable this session");
 			}
+			return false;
+		}
+
+		// The input editor and focused overlays arrived in ABI 2.1.
+		if (g_client->AbiMinor() < kRequiredAbiMinor) {
+			REX::ERROR("DearModdingUI ABI 2.{} is too old; update DearModdingUI to 0.2.1 or newer", g_client->AbiMinor());
 			return false;
 		}
 
