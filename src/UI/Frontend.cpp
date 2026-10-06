@@ -9,7 +9,6 @@ namespace UI::Frontend
 		constexpr auto kClientId = "dearmodding.evil-console";
 		constexpr auto kClientDisplayName = "Evil Console";
 		constexpr auto kClientIcon = "terminal-window";
-		constexpr auto kToggleChord = "Grave";
 		constexpr auto kRequiredAbiMinor = 1u;
 
 		constexpr DMUI_ManagedOverlayOptions kOverlayDefaults{
@@ -29,6 +28,8 @@ namespace UI::Frontend
 		DMUI_PageHandle               g_page{DMUI_INVALID_PAGE_HANDLE};
 		bool                          g_open{false};
 		std::uint64_t                 g_focusGeneration{0};
+		std::atomic<bool>             g_ready{false};
+		std::atomic<bool>             g_togglePending{false};
 
 		void Close()
 		{
@@ -141,20 +142,28 @@ namespace UI::Frontend
 			REX::WARN("could not configure the console overlay, result: {}", g_client->LastResult());
 		}
 
-		const auto toggle = g_client->AddHotkeyAction(
-			"toggle",
-			"Toggle console",
-			kToggleChord,
-			[](bool a_pressed) {
-				if (a_pressed) {
-					g_open ? Close() : Open();
-				}
-			});
-		if (!toggle) {
-			REX::WARN("could not register the console hotkey, result: {}", g_client->LastResult());
+		// Toggles arrive from the game thread; apply them on the render thread.
+		const auto observer = g_client->AddFrameObserver([] {
+			if (g_togglePending.exchange(false)) {
+				g_open ? Close() : Open();
+			}
+		});
+		if (!observer) {
+			REX::ERROR("could not register the console frame observer, result: {}", g_client->LastResult());
+			return false;
 		}
 
+		g_ready = true;
 		REX::INFO("registered '{}' with DearModdingUI", kClientId);
+		return true;
+	}
+
+	bool RequestToggle() noexcept
+	{
+		if (!g_ready) {
+			return false;
+		}
+		g_togglePending = true;
 		return true;
 	}
 }

@@ -1,5 +1,8 @@
 set_xmakever("3.1.1")
 
+-- enable REX INI settings before pulling in CommonLibF4
+set_config("commonlib_ini", true)
+
 includes("lib/commonlibf4")
 includes("@builtin/xpack")
 includes("scripts/xmake")

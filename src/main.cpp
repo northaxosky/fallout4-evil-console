@@ -2,8 +2,10 @@
 #include "Console/Session.h"
 #include "Game/CommandTable.h"
 #include "Game/ConsoleLogHook.h"
+#include "Game/ConsoleToggleHook.h"
 #include "Game/VanillaCommandExecutor.h"
 #include "Persistence/HistoryFile.h"
+#include "Settings.h"
 #include "UI/Frontend.h"
 
 namespace Main
@@ -44,6 +46,11 @@ namespace Main
 			// Installed at load so output printed before the first open is still captured.
 			if (!Game::ConsoleLogHook::Install(g_output)) {
 				return;
+			}
+
+			Settings::Load();
+			if (Settings::bReplaceVanillaConsole.GetValue() && !Game::ConsoleToggleHook::Install(UI::Frontend::RequestToggle)) {
+				REX::WARN("the console key will open the vanilla console");
 			}
 
 			auto historyPath = Persistence::DefaultHistoryPath();
