@@ -15,6 +15,10 @@ namespace UI
 
 		constexpr std::size_t kMaxOutputLines = 4000;
 		constexpr std::size_t kMaxSuggestions = 12;
+		constexpr char        kConsoleKeyCharacter = '`';
+
+		// The input sits at the bottom of the console, so popups open upward from the caret line.
+		constexpr dmui::ui::Vec2 kAboveCaret{0.0f, 1.0f};
 	}
 
 	ConsoleView::ConsoleView(dmui::Client& a_client, Console::Session& a_session, const Console::OutputLog& a_output) :
@@ -119,6 +123,16 @@ namespace UI
 			return;
 		}
 
+		// Focus blocks the game's console key, so its character arrives as text instead.
+		if (edited && input_.contains(kConsoleKeyCharacter)) {
+			const auto before = std::ranges::count(std::string_view{input_}.substr(0, std::min(cursor_, input_.size())), kConsoleKeyCharacter);
+			std::erase(input_, kConsoleKeyCharacter);
+			ReplaceInput(std::move(input_), cursor_ - static_cast<std::size_t>(before));
+			ClosePopup();
+			closeRequested_ = true;
+			return;
+		}
+
 		if (edited) {
 			session_.GetHistory().ResetNavigation();
 			RefreshSuggestions(cursor_, false);
@@ -136,7 +150,8 @@ namespace UI
 		if (previous || has(EditEvents::kHistoryNext)) {
 			if (popupOpen_) {
 				const auto count = suggestions_.size();
-				selected_ = (selected_ + (previous ? count - 1 : 1)) % count;
+				// The list grows upward from the input, so Up moves away from it.
+				selected_ = (selected_ + (previous ? 1 : count - 1)) % count;
 			} else {
 				auto& history = session_.GetHistory();
 				if (auto entry = previous ? history.Previous(input_) : history.Next()) {
@@ -167,22 +182,22 @@ namespace UI
 			return;
 		}
 
-		const dmui::ui::Vec2 anchor{a_state.caretPosition.x, a_state.caretPosition.y + a_state.lineHeight};
-		if (!dmui::ui::BeginTooltipAt(anchor)) {
+		if (!dmui::ui::BeginTooltipAt(a_state.caretPosition, kAboveCaret)) {
 			return;
 		}
 
-		for (std::size_t index = 0; index < suggestions_.size(); ++index) {
-			const auto* command = suggestions_[index];
-			const auto  label = command->shortName.empty() ? command->name : std::format("{}  ({})", command->name, command->shortName);
-			(void)dmui::ui::Selectable(label.c_str(), index == selected_);
-		}
-
 		const auto* selected = suggestions_[selected_];
-		dmui::ui::Separator();
 		dmui::ui::TextUnformatted(Console::FormatSignature(*selected));
 		if (!selected->help.empty()) {
 			dmui::ui::TextDisabled("%s", selected->help.c_str());
+		}
+		dmui::ui::Separator();
+
+		// Best match sits next to the input line.
+		for (auto index = suggestions_.size(); index-- > 0;) {
+			const auto* command = suggestions_[index];
+			const auto  label = command->shortName.empty() ? command->name : std::format("{}  ({})", command->name, command->shortName);
+			(void)dmui::ui::Selectable(label.c_str(), index == selected_);
 		}
 		dmui::ui::EndTooltip();
 	}
@@ -199,8 +214,7 @@ namespace UI
 			return;
 		}
 
-		const dmui::ui::Vec2 anchor{a_state.caretPosition.x, a_state.caretPosition.y + a_state.lineHeight};
-		if (!dmui::ui::BeginTooltipAt(anchor)) {
+		if (!dmui::ui::BeginTooltipAt(a_state.caretPosition, kAboveCaret)) {
 			return;
 		}
 		dmui::ui::TextUnformatted(Console::FormatSignature(*command));
