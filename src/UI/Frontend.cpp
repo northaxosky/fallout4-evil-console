@@ -156,7 +156,7 @@ namespace UI::Frontend
 
 		// ALWAYS stays active while focused, so the same key opens and closes the console.
 		const auto hotkey = g_client->AddHotkeyAction(
-			"toggle",
+			"evil-console.toggle",
 			"Toggle console",
 			kToggleChord,
 			[](bool a_pressed) {
