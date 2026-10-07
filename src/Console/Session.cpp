@@ -5,9 +5,10 @@
 
 namespace Console
 {
-	Session::Session(CommandExecutor& a_executor, HistoryStore& a_store, std::size_t a_historyCapacity) :
+	Session::Session(CommandExecutor& a_executor, HistoryStore& a_store, SelectionSource& a_selection, std::size_t a_historyCapacity) :
 		executor_(a_executor),
 		store_(a_store),
+		selection_(a_selection),
 		history_(a_historyCapacity)
 	{
 		history_.Assign(store_.Load(a_historyCapacity));

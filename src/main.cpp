@@ -3,6 +3,7 @@
 #include "Game/CommandTable.h"
 #include "Game/ConsoleLogHook.h"
 #include "Game/ConsoleToggleHook.h"
+#include "Game/PickedReference.h"
 #include "Game/VanillaCommandExecutor.h"
 #include "Persistence/HistoryFile.h"
 #include "Settings.h"
@@ -17,6 +18,7 @@ namespace Main
 
 		Console::OutputLog                        g_output{kOutputCapacity};
 		Game::VanillaCommandExecutor              g_executor;
+		Game::PickedReference                     g_selection;
 		std::unique_ptr<Persistence::HistoryFile> g_historyFile;
 		std::unique_ptr<Console::Session>         g_session;
 
@@ -58,7 +60,7 @@ namespace Main
 				REX::WARN("could not resolve the Documents folder; console history will not persist");
 			}
 			g_historyFile = std::make_unique<Persistence::HistoryFile>(historyPath.value_or(std::filesystem::path{}));
-			g_session = std::make_unique<Console::Session>(g_executor, *g_historyFile, kHistoryCapacity);
+			g_session = std::make_unique<Console::Session>(g_executor, *g_historyFile, g_selection, kHistoryCapacity);
 
 			const auto messaging = F4SE::GetMessagingInterface();
 			if (!messaging || !messaging->RegisterListener(OnMessage)) {

@@ -2,6 +2,9 @@
 
 #include "UI/ConsoleView.h"
 
+#include "Console/Selection.h"
+#include "Console/Session.h"
+
 namespace UI::Frontend
 {
 	namespace
@@ -31,6 +34,11 @@ namespace UI::Frontend
 		std::uint64_t                 g_focusGeneration{0};
 		std::atomic<bool>             g_ready{false};
 		std::atomic<bool>             g_togglePending{false};
+		Console::Session*             g_session{nullptr};
+
+		// Selected reference details can change while open, e.g. health or position.
+		constexpr auto                        kSelectionRefreshInterval = std::chrono::milliseconds{250};
+		std::chrono::steady_clock::time_point g_lastSelectionRefresh{};
 
 		void Close()
 		{
@@ -124,6 +132,7 @@ namespace UI::Frontend
 			return false;
 		}
 
+		g_session = std::addressof(a_session);
 		g_view = std::make_unique<ConsoleView>(*g_client, a_session, a_output);
 
 		const auto page = g_client->AddPage(
@@ -147,6 +156,11 @@ namespace UI::Frontend
 		const auto observer = g_client->AddFrameObserver([] {
 			if (g_togglePending.exchange(false)) {
 				g_open ? Close() : Open();
+			}
+			const auto now = std::chrono::steady_clock::now();
+			if (g_open && now - g_lastSelectionRefresh >= kSelectionRefreshInterval) {
+				g_lastSelectionRefresh = now;
+				g_session->GetSelection().Refresh();
 			}
 		});
 		if (!observer) {

@@ -3,6 +3,7 @@
 #include "Console/CommandCatalog.h"
 #include "Console/CommandLine.h"
 #include "Console/OutputLog.h"
+#include "Console/Selection.h"
 #include "Console/Session.h"
 #include "Console/Utf8.h"
 
@@ -49,9 +50,79 @@ namespace UI
 		DMUI_StyleMetrics metrics{};
 		(void)dmui::ui::GetStyleMetrics(metrics);
 
+		const auto top = dmui::ui::GetCursorPosY();
+		DrawSelection();
+		const auto selectionHeight = dmui::ui::GetCursorPosY() - top;
+
 		PullOutput();
-		DrawOutput(a_available - inputHeight - metrics.itemSpacing.y);
+		DrawOutput(a_available - selectionHeight - inputHeight - metrics.itemSpacing.y);
 		DrawInput();
+	}
+
+	namespace
+	{
+		[[nodiscard]] std::string Describe(const Console::FormSummary& a_form)
+		{
+			const auto& label = !a_form.name.empty() ? a_form.name : !a_form.editorID.empty() ? a_form.editorID :
+			                                                                                    std::string{"<unnamed>"};
+			return std::format("{} [{:08X}]", label, a_form.formID);
+		}
+
+		[[nodiscard]] std::string Provenance(const Console::FormSummary& a_form)
+		{
+			if (a_form.definedIn.empty() || a_form.definedIn == a_form.lastChangedBy || a_form.lastChangedBy.empty()) {
+				return a_form.definedIn;
+			}
+			return std::format("{} > {}", a_form.definedIn, a_form.lastChangedBy);
+		}
+
+		void LabeledLine(const char* a_label, const std::string& a_value)
+		{
+			dmui::ui::TextDisabled("%s", a_label);
+			dmui::ui::SameLine();
+			dmui::ui::TextUnformatted(a_value);
+		}
+	}
+
+	void ConsoleView::DrawSelection()
+	{
+		const auto selection = session_.GetSelection().Current();
+		if (!selection) {
+			dmui::ui::TextDisabled("No reference selected (pnr picks under the crosshair, prid by ID)");
+			dmui::ui::Separator();
+			return;
+		}
+
+		const auto& refr = selection->reference;
+		const auto& base = selection->base;
+		auto        flags = std::string{};
+		if (selection->disabled) {
+			flags += "  disabled";
+		}
+		if (selection->deleted) {
+			flags += "  deleted";
+		}
+		LabeledLine("Ref", std::format("{}{}  {}", Describe(refr), flags, Provenance(refr)));
+		LabeledLine("Base", std::format("{} {}  {}", base.type, Describe(base), Provenance(base)));
+
+		const auto& [x, y, z] = selection->position;
+		auto where = std::format("{:.0f}, {:.0f}, {:.0f}", x, y, z);
+		if (selection->cell) {
+			where += std::format("  in {}", Describe(*selection->cell));
+		}
+		if (selection->location) {
+			where += std::format("  ({})", selection->location->name);
+		}
+		LabeledLine("At", where);
+
+		if (selection->actor) {
+			const auto& actor = *selection->actor;
+			LabeledLine("Actor", std::format("Level {}  {}  Health {:.0f}/{:.0f}", actor.level, actor.race, actor.health, actor.healthMax));
+		}
+		if (selection->owner) {
+			LabeledLine("Owner", Describe(*selection->owner));
+		}
+		dmui::ui::Separator();
 	}
 
 	void ConsoleView::PullOutput()
