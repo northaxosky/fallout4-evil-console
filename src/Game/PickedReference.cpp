@@ -1,5 +1,7 @@
 #include "Game/PickedReference.h"
 
+#include "Game/CursorPick.h"
+
 namespace Game
 {
 	namespace
@@ -79,6 +81,19 @@ namespace Game
 		tasks->AddTask([this] {
 			current_.store(ReadPick());
 			pending_ = false;
+		});
+	}
+
+	void PickedReference::SelectAtCursor()
+	{
+		const auto tasks = F4SE::GetTaskInterface();
+		if (!tasks) {
+			return;
+		}
+
+		tasks->AddTask([this] {
+			CursorPick::PickNextAtCursor();
+			current_.store(ReadPick());
 		});
 	}
 

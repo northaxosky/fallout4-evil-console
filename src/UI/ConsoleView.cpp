@@ -57,6 +57,19 @@ namespace UI
 		PullOutput();
 		DrawOutput(a_available - selectionHeight - inputHeight - metrics.itemSpacing.y);
 		DrawInput();
+		HandleWorldPointer();
+	}
+
+	void ConsoleView::HandleWorldPointer()
+	{
+		// Clicks and wheel outside our window go to the world, like the vanilla console.
+		const auto pointer = dmui::ui::GetPointerState();
+		if (!pointer.active) {
+			return;
+		}
+		if ((pointer.pressed & DMUI_POINTER_BUTTON_LEFT) != 0 || pointer.wheel.y != 0.0f) {
+			session_.GetSelection().SelectAtCursor();
+		}
 	}
 
 	namespace

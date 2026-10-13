@@ -31,6 +31,7 @@ namespace UI
 	private:
 		void PullOutput();
 		void DrawSelection();
+		void HandleWorldPointer();
 		void DrawOutput(float a_height);
 		void DrawInput();
 		void DrawPopup(const dmui::ui::TextEditState& a_state);

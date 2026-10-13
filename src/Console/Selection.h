@@ -35,7 +35,7 @@ namespace Console
 		std::optional<ActorSummary> actor;
 	};
 
-	// Supplies the current selection; Refresh may complete asynchronously.
+	// Supplies and changes the current selection; calls may complete asynchronously.
 	class SelectionSource
 	{
 	public:
@@ -43,6 +43,9 @@ namespace Console
 
 		// Any thread; coalesces with an in-flight refresh.
 		virtual void Refresh() = 0;
+
+		// Any thread; selects the next reference under the mouse cursor and refreshes.
+		virtual void SelectAtCursor() = 0;
 
 		// Null when nothing is selected or before the first refresh.
 		[[nodiscard]] virtual std::shared_ptr<const Selection> Current() const = 0;

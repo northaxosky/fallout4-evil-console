@@ -3,6 +3,7 @@
 #include "Game/CommandTable.h"
 #include "Game/ConsoleLogHook.h"
 #include "Game/ConsoleToggleHook.h"
+#include "Game/CursorPick.h"
 #include "Game/PickedReference.h"
 #include "Game/VanillaCommandExecutor.h"
 #include "Persistence/HistoryFile.h"
@@ -43,7 +44,8 @@ namespace Main
 		static std::once_flag once;
 		static bool           initialized = false;
 		std::call_once(once, [&]() {
-			F4SE::Init(a_f4se);
+			// Room for the single call-site hook used by cursor picking.
+			F4SE::Init(a_f4se, {.trampoline = true, .trampolineSize = 64});
 
 			// Installed at load so output printed before the first open is still captured.
 			if (!Game::ConsoleLogHook::Install(g_output)) {
@@ -53,6 +55,10 @@ namespace Main
 			Settings::Load();
 			if (Settings::bReplaceVanillaConsole.GetValue() && !Game::ConsoleToggleHook::Install(UI::Frontend::RequestToggle)) {
 				REX::WARN("the console key will open the vanilla console");
+			}
+
+			if (!Game::CursorPick::Install()) {
+				REX::WARN("clicking the world will not select references");
 			}
 
 			auto historyPath = Persistence::DefaultHistoryPath();

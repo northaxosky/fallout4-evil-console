@@ -10,6 +10,7 @@ namespace Game
 	{
 	public:
 		void Refresh() override;
+		void SelectAtCursor() override;
 
 		[[nodiscard]] std::shared_ptr<const Console::Selection> Current() const override;
 
