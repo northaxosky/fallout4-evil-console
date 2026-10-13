@@ -55,6 +55,10 @@ namespace Game
 			auto  selection = std::make_shared<Console::Selection>();
 			auto& refr = *reference;
 			selection->reference = Summarize(refr);
+			// References have no full name of their own; this resolves renames and the base name.
+			if (const auto* name = refr.GetDisplayFullName()) {
+				selection->reference.name = name;
+			}
 			if (const auto* base = refr.GetObjectReference()) {
 				selection->base = Summarize(*base);
 			}
